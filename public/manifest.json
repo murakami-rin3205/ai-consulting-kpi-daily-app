@@ -1,0 +1,27 @@
+{
+  "name": "AIコンサル事業部 KPI・日報",
+  "short_name": "AI KPI日報",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#f6f9fc",
+  "theme_color": "#0b63ce",
+  "description": "AIコンサル事業部のKPI、案件、日報を管理するアプリ",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

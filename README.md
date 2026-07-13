@@ -1,36 +1,29 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AIコンサル事業部 KPI・日報アプリ
 
-## Getting Started
+KPI数値管理、目標設定、ダッシュボード可視化、日報・週報・月報、上長コメント、メンバー/チーム管理、CSVエクスポートをまとめた Next.js アプリです。
 
-First, run the development server:
+## 起動
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run dev -- --port 3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ブラウザで `http://localhost:3000` を開きます。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 実装内容
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- モバイルファーストのレスポンシブUI、PCサイドナビ、スマホ下部ナビ
+- KPIの日次入力、過去値編集、編集履歴保存
+- 日次・週次・月次・半期目標の登録
+- 半期は `5月-10月` と `11月-4月` で集計
+- 事業部、チーム、個人へのドリルダウン
+- 円グラフ、棒グラフ、折れ線/面グラフによる目標対実績表示
+- 日報、週報、月報と上長コメント、既読/未読、コメント有無表示
+- メンバー、チーム、KPI項目の追加/削除
+- KPI・日報のCSVエクスポート
+- PWA manifest と Service Worker
+- `data/app-db.json` への永続保存
 
-## Learn More
+## データ保存
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+外部DBなしですぐ試せるように、Next.js API Route が `data/app-db.json` を読み書きします。PostgreSQL/MySQLへ移行する場合は `src/lib/store.ts` をDBクライアント実装へ差し替えます。
