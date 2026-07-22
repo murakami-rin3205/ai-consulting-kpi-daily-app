@@ -3254,9 +3254,11 @@ function DashboardView(props: {
   const [forecastRanks, setForecastRanks] = useState<DealRank[]>([]);
   const [breakdown, setBreakdown] = useState<{
     title: string;
+    columns?: { date: string; userName: string; value: string; detail: string };
     rows: { id: string; date: string; userName: string; value: string; detail: string }[];
   } | null>(null);
   const userIds = usersForDrill(props.data, props.drill).map((user) => user.id);
+  const scopedUsers = usersForDrill(props.data, props.drill);
   const contractCount = countDeals(props.data.deals, userIds, "contract", props.period.start, props.period.end);
   const contractSalesAmount = sumDealAmounts(props.data.deals, userIds, "contract", props.period.start, props.period.end);
   const forecastReferenceDate = (deal: Deal) => (deal.stage === "contract" ? dealDate(deal) : nextActionDate(deal));
@@ -3328,6 +3330,39 @@ function DashboardView(props: {
       }));
     setBreakdown({ title: label + "の根拠", rows });
   };
+  const openKpiMemberTotalBreakdown = (kpiItemId: string, label: string) => {
+    const item = props.data.kpiItems.find((candidate) => candidate.id === kpiItemId);
+    const unit = item?.unit ?? "件";
+    const scopedRecords = props.data.kpiRecords.filter(
+      (record) => userIds.includes(record.userId) && record.kpiItemId === kpiItemId && inRange(record.date, props.period.start, props.period.end),
+    );
+    const rows = scopedUsers
+      .map((user, index) => {
+        const total = scopedRecords.filter((record) => record.userId === user.id).reduce((sum, record) => sum + record.actualValue, 0);
+        return {
+          id: `${kpiItemId}-${user.id}`,
+          date: `${props.period.start} - ${props.period.end}`,
+          userName: user.name,
+          value: numberFormat(total) + " " + unit,
+          detail: `${label} / 期間累積`,
+          sortValue: total,
+          sortIndex: index,
+        };
+      })
+      .sort((a, b) => b.sortValue - a.sortValue || a.sortIndex - b.sortIndex)
+      .map((row) => ({
+        id: row.id,
+        date: row.date,
+        userName: row.userName,
+        value: row.value,
+        detail: row.detail,
+      }));
+    setBreakdown({
+      title: label + "のメンバー別累積",
+      columns: { date: "対象期間", userName: "メンバー", value: "累積実績", detail: "内容" },
+      rows,
+    });
+  };
   const openForecastBreakdown = (kpiItemId: "kpi-orders" | "kpi-sales", label: string) => {
     const rows = props.data.deals
       .filter((deal) => rankedForecastDealFilter(deal, userIds, props.period.start, props.period.end))
@@ -3341,6 +3376,36 @@ function DashboardView(props: {
       }));
     setBreakdown({ title: label + "の根拠", rows });
   };
+  const openForecastMemberTotalBreakdown = (kpiItemId: "kpi-orders" | "kpi-sales", label: string) => {
+    const scopedDeals = props.data.deals.filter((deal) => rankedForecastDealFilter(deal, userIds, props.period.start, props.period.end));
+    const rows = scopedUsers
+      .map((user, index) => {
+        const userDeals = scopedDeals.filter((deal) => deal.userId === user.id);
+        const total = kpiItemId === "kpi-sales" ? userDeals.reduce((sum, deal) => sum + deal.amount, 0) : userDeals.length;
+        return {
+          id: `${kpiItemId}-${user.id}`,
+          date: `${props.period.start} - ${props.period.end}`,
+          userName: user.name,
+          value: kpiItemId === "kpi-sales" ? numberFormat(total) + " 万円" : numberFormat(total) + " 件",
+          detail: `対象案件 ${numberFormat(userDeals.length)} 件 / 期間累積`,
+          sortValue: total,
+          sortIndex: index,
+        };
+      })
+      .sort((a, b) => b.sortValue - a.sortValue || a.sortIndex - b.sortIndex)
+      .map((row) => ({
+        id: row.id,
+        date: row.date,
+        userName: row.userName,
+        value: row.value,
+        detail: row.detail,
+      }));
+    setBreakdown({
+      title: label + "のメンバー別累積",
+      columns: { date: "対象期間", userName: "メンバー", value: "累積実績", detail: "内容" },
+      rows,
+    });
+  };
   const openActiveBreakdown = () => {
     if (props.activeKpi.id === "kpi-sales" || props.activeKpi.id === "kpi-orders") {
       openForecastBreakdown(props.activeKpi.id, props.activeKpi.name);
@@ -3349,12 +3414,12 @@ function DashboardView(props: {
     openKpiBreakdown(props.activeKpi.id, props.activeKpi.name);
   };
   const allDataProgressGoals = [
-    progressGoalFor("kpi-sales", "売上", forecastSalesAmount, "#0b63ce", () => openForecastBreakdown("kpi-sales", "売上")),
-    progressGoalFor("kpi-orders", "契約数", forecastOrderCount, "#16a34a", () => openForecastBreakdown("kpi-orders", "契約数")),
-    progressGoalFor("kpi-ap", "AP数", apInputCount, "#00a88f", () => openKpiBreakdown("kpi-ap", "AP数")),
-    progressGoalFor("kpi-calls", "架電数", callInputCount, "#f59e0b", () => openKpiBreakdown("kpi-calls", "架電数")),
-    progressGoalFor("kpi-meetings", "初回商談数", firstMeetingInputCount, "#4f46e5", () => openKpiBreakdown("kpi-meetings", "初回商談数")),
-    progressGoalFor("kpi-reclose", "再クロ数", recloseInputCount, "#db2777", () => openKpiBreakdown("kpi-reclose", "再クロ数")),
+    progressGoalFor("kpi-sales", "売上", forecastSalesAmount, "#0b63ce", () => openForecastMemberTotalBreakdown("kpi-sales", "売上")),
+    progressGoalFor("kpi-orders", "契約数", forecastOrderCount, "#16a34a", () => openForecastMemberTotalBreakdown("kpi-orders", "契約数")),
+    progressGoalFor("kpi-ap", "AP数", apInputCount, "#00a88f", () => openKpiMemberTotalBreakdown("kpi-ap", "AP数")),
+    progressGoalFor("kpi-calls", "架電数", callInputCount, "#f59e0b", () => openKpiMemberTotalBreakdown("kpi-calls", "架電数")),
+    progressGoalFor("kpi-meetings", "初回商談数", firstMeetingInputCount, "#4f46e5", () => openKpiMemberTotalBreakdown("kpi-meetings", "初回商談数")),
+    progressGoalFor("kpi-reclose", "再クロ数", recloseInputCount, "#db2777", () => openKpiMemberTotalBreakdown("kpi-reclose", "再クロ数")),
   ];
   const comparisonData = (props.drill.scope === "division" ? props.data.teams : usersForDrill(props.data, props.drill)).map((item) => {
     const ids = "color" in item ? props.data.users.filter((user) => user.teamId === item.id).map((user) => user.id) : [item.id];
@@ -3496,10 +3561,10 @@ function DashboardView(props: {
               ) : (
                 <div className="breakdown-table">
                   <div className="breakdown-head">
-                    <span>日付</span>
-                    <span>担当</span>
-                    <span>実績</span>
-                    <span>内容</span>
+                    <span>{breakdown.columns?.date ?? "日付"}</span>
+                    <span>{breakdown.columns?.userName ?? "担当"}</span>
+                    <span>{breakdown.columns?.value ?? "実績"}</span>
+                    <span>{breakdown.columns?.detail ?? "内容"}</span>
                   </div>
                   {breakdown.rows.map((row) => (
                     <article key={row.id}>
