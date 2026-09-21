@@ -188,11 +188,25 @@ export type Announcement = {
   updatedAt: string;
 };
 
+export type QualitativeInsightCategory = "customer_voice" | "competitor" | "service_issue" | "market_need";
+
+export type QualitativeInsight = {
+  id: string;
+  userId: string;
+  category: QualitativeInsightCategory;
+  date: string;
+  title: string;
+  detail: string;
+  source?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AuditLog = {
   id: string;
   actorId: string;
   action: string;
-  targetType: "kpi" | "deal" | "training" | "target" | "member" | "team" | "report" | "announcement" | "backup" | "system";
+  targetType: "kpi" | "deal" | "training" | "target" | "member" | "team" | "report" | "announcement" | "insight" | "backup" | "system";
   targetId?: string;
   summary: string;
   before?: string;
@@ -214,5 +228,6 @@ export type AppData = {
   reportComments: ReportComment[];
   notifications: AppNotification[];
   announcements: Announcement[];
+  qualitativeInsights: QualitativeInsight[];
   auditLogs: AuditLog[];
 };

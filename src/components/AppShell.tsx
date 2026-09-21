@@ -15,6 +15,7 @@ import {
   GraduationCap,
   HelpCircle,
   History,
+  Lightbulb,
   LineChart as LineChartIcon,
   LogOut,
   MessageSquare,
@@ -71,6 +72,7 @@ import type {
   KpiRecordHistory,
   KpiTarget,
   PeriodType,
+  QualitativeInsightCategory,
   Report,
   ReportAiFeedback,
   ReportComment,
@@ -84,7 +86,7 @@ import type {
   User,
 } from "@/lib/types";
 
-type View = "dashboard" | "kpi" | "reports" | "targets" | "deals" | "training" | "members" | "analysis";
+type View = "dashboard" | "kpi" | "reports" | "insights" | "targets" | "deals" | "training" | "members" | "analysis";
 type Drill = { scope: TargetScope; teamId?: string; userId?: string };
 type FilterPeriodType = PeriodType | "all";
 type SyncCollection = keyof Pick<
@@ -102,6 +104,7 @@ type SyncCollection = keyof Pick<
   | "reportComments"
   | "notifications"
   | "announcements"
+  | "qualitativeInsights"
   | "auditLogs"
 >;
 type AppDataChangesResponse = {
@@ -119,7 +122,7 @@ type DealActionAlert = { id: string; dealId: string; status: "overdue" | "today"
 type GlobalSearchResult = {
   id: string;
   targetId: string;
-  kind: "案件" | "日報" | "操作履歴";
+  kind: "案件" | "日報" | "定性情報" | "操作履歴";
   title: string;
   summary: string;
   meta: string;
@@ -152,8 +155,9 @@ const navItems: { id: View; label: string; shortLabel?: string; icon: React.Elem
   { id: "dashboard", label: "進捗", icon: Gauge },
   { id: "kpi", label: "KPI入力", icon: Edit3 },
   { id: "reports", label: "日報", icon: FileText },
+  { id: "insights", label: "定性情報共有", shortLabel: "定性", icon: Lightbulb },
   { id: "targets", label: "目標", icon: Target },
-  { id: "deals", label: "案件管理", icon: BriefcaseBusiness },
+  { id: "deals", label: "案件管理", shortLabel: "案件", icon: BriefcaseBusiness },
   { id: "training", label: "研修スケジュール", shortLabel: "研修", icon: GraduationCap },
   { id: "members", label: "設定", icon: Settings },
   { id: "analysis", label: "分析", icon: BarChart3 },
@@ -181,6 +185,36 @@ const dealRankLabels: Record<DealRank, string> = {
   contract: "契約",
   lost: "失注",
 };
+const insightCategories: QualitativeInsightCategory[] = ["customer_voice", "competitor", "service_issue", "market_need"];
+const insightCategoryLabels: Record<QualitativeInsightCategory, string> = {
+  customer_voice: "①顧客の声・要望",
+  competitor: "②競合動向",
+  service_issue: "③サービス不備・改善提案",
+  market_need: "④新規市場ニーズの兆し",
+};
+const insightCategoryGuides: Record<QualitativeInsightCategory, { description: string; sourceLabel: string; detailPlaceholder: string }> = {
+  customer_voice: {
+    description: "商談・架電・研修などで聞いた、顧客の生の声や要望を共有します。",
+    sourceLabel: "顧客名・案件名",
+    detailPlaceholder: "誰が・どの場面で・何と言っていたか。背景や温度感もあわせて記入",
+  },
+  competitor: {
+    description: "競合の提案内容・価格・新サービスや、顧客から聞いた比較コメントを共有します。",
+    sourceLabel: "競合名・情報源",
+    detailPlaceholder: "競合の動き、価格や提案内容、顧客の反応、自社への影響など",
+  },
+  service_issue: {
+    description: "自社サービス・資料・運用で気づいた不備と、その改善案を共有します。",
+    sourceLabel: "対象サービス・場面",
+    detailPlaceholder: "何が起きたか、どこに不備があるか、どう改善するとよいか",
+  },
+  market_need: {
+    description: "新しい業界・用途・課題など、今後の需要につながりそうな兆しを共有します。",
+    sourceLabel: "業界・情報源",
+    detailPlaceholder: "どの業界・どんな課題で、なぜニーズがありそうと感じたか",
+  },
+};
+type InsightInput = { category: QualitativeInsightCategory; date: string; title: string; detail: string; source: string };
 const forecastRankOptions: DealRank[] = ["c", "b", "a", "contract_planned"];
 const dealRankSortScore: Record<DealRank, number> = {
   contract: 5,
@@ -223,12 +257,14 @@ const syncCollections: SyncCollection[] = [
   "reportComments",
   "notifications",
   "announcements",
+  "qualitativeInsights",
   "auditLogs",
 ];
 const viewSyncCollections: Record<View, SyncCollection[]> = {
   dashboard: ["users", "teams", "kpiItems", "kpiTargets", "kpiRecords", "kpiRecordHistories", "attendanceRecords", "deals", "reports"],
   kpi: ["users", "teams", "kpiItems", "kpiTargets", "kpiRecords", "kpiRecordHistories", "attendanceRecords"],
   reports: ["users", "teams", "reports", "reportComments", "notifications"],
+  insights: ["users", "teams", "qualitativeInsights", "auditLogs"],
   targets: ["users", "teams", "kpiItems", "kpiTargets", "auditLogs"],
   deals: ["users", "teams", "deals", "auditLogs"],
   training: ["users", "teams", "deals", "trainingSchedules", "auditLogs"],
@@ -1037,6 +1073,7 @@ export function AppShell() {
   const [focusedDealId, setFocusedDealId] = useState<string | null>(null);
   const [focusedReportId, setFocusedReportId] = useState<string | null>(null);
   const [focusedAuditId, setFocusedAuditId] = useState<string | null>(null);
+  const [focusedInsightId, setFocusedInsightId] = useState<string | null>(null);
   const [focusedKpiUserId, setFocusedKpiUserId] = useState<string | null>(null);
   const [dealFocusKey, setDealFocusKey] = useState(0);
   const [dealActionFocusKey, setDealActionFocusKey] = useState(0);
@@ -1111,6 +1148,25 @@ export function AppShell() {
                 view: "reports" as const,
               };
             }),
+          ...data.qualitativeInsights
+            .filter((insight) => {
+              const user = data.users.find((item) => item.id === insight.userId);
+              const text = [insightCategoryLabels[insight.category], insight.title, insight.detail, insight.source ?? "", user?.name ?? "", insight.date].join(" ");
+              return text.toLowerCase().includes(globalSearchQueryText);
+            })
+            .slice(0, 12)
+            .map((insight) => {
+              const user = data.users.find((item) => item.id === insight.userId);
+              return {
+                id: "insight-" + insight.id,
+                targetId: insight.id,
+                kind: "定性情報" as const,
+                title: insight.title,
+                summary: insight.detail,
+                meta: insightCategoryLabels[insight.category] + " / " + (user?.name ?? "未設定") + " / " + insight.date,
+                view: "insights" as const,
+              };
+            }),
           ...data.auditLogs
             .filter((log) => canSearchAllAuditLogs || log.actorId === currentUser.id || log.targetId === currentUser.id)
             .filter((log) => {
@@ -1161,6 +1217,7 @@ export function AppShell() {
     nextData: AppData,
     meta?: { revision?: string; collectionRevisions?: Partial<Record<SyncCollection, string>> },
   ) {
+    nextData = { ...nextData, qualitativeInsights: nextData.qualitativeInsights ?? [] };
     dataRef.current = nextData;
     dataRevisionRef.current = meta?.revision ?? computeAppDataRevision(nextData);
     collectionRevisionsRef.current = { ...computeAppDataCollectionRevisions(nextData), ...(meta?.collectionRevisions ?? {}) };
@@ -1504,6 +1561,41 @@ export function AppShell() {
     persist({ ...data, announcements: data.announcements.filter((announcement) => announcement.id !== announcementId) });
   }
 
+  function saveInsight(input: InsightInput, insightId?: string) {
+    if (!currentUser || !input.title.trim() || !input.detail.trim()) return;
+    const now = new Date().toISOString();
+    const fields = { category: input.category, date: input.date, title: input.title.trim(), detail: input.detail.trim(), source: input.source.trim() };
+    if (!insightId) {
+      persist({
+        ...data,
+        qualitativeInsights: [{ id: id("insight"), userId: currentUser.id, ...fields, createdAt: now, updatedAt: now }, ...data.qualitativeInsights],
+      });
+      return;
+    }
+    const target = data.qualitativeInsights.find((insight) => insight.id === insightId);
+    if (!target || (currentUser.role !== "admin" && target.userId !== currentUser.id)) return;
+    persist({
+      ...data,
+      qualitativeInsights: data.qualitativeInsights.map((insight) => (insight.id === insightId ? { ...insight, ...fields, updatedAt: now } : insight)),
+    });
+  }
+
+  function deleteInsight(insightId: string) {
+    if (!currentUser) return;
+    const target = data.qualitativeInsights.find((insight) => insight.id === insightId);
+    if (!target || (currentUser.role !== "admin" && target.userId !== currentUser.id)) return;
+    if (!confirmDelete("「" + target.title + "」")) return;
+    persist(
+      withAudit(
+        { ...data, qualitativeInsights: data.qualitativeInsights.filter((insight) => insight.id !== insightId) },
+        "定性情報削除",
+        "insight",
+        insightCategoryLabels[target.category] + "「" + target.title + "」を削除",
+        { targetId: insightId, before: target.detail },
+      ),
+    );
+  }
+
   function markAnnouncementRead(announcementId: string) {
     if (!currentUser) return;
     const target = data.announcements.find((announcement) => announcement.id === announcementId);
@@ -1591,6 +1683,7 @@ export function AppShell() {
     }
     if (result.view === "reports") setFocusedReportId(result.targetId);
     if (result.view === "members") setFocusedAuditId(result.targetId);
+    if (result.view === "insights") setFocusedInsightId(result.targetId);
     setView(result.view);
     setGlobalSearchOpen(false);
   }
@@ -2147,6 +2240,7 @@ export function AppShell() {
       reportComments: parsed.reportComments ?? [],
       notifications: parsed.notifications ?? [],
       announcements: parsed.announcements ?? [],
+      qualitativeInsights: parsed.qualitativeInsights ?? [],
       auditLogs: parsed.auditLogs ?? [],
     };
     persist(withAudit(restored, "バックアップ復元", "backup", "JSONバックアップを復元" + (parsed.exportedAt ? "（" + parsed.exportedAt + "）" : "")));
@@ -2207,7 +2301,7 @@ export function AppShell() {
                 setGlobalSearchOpen(true);
               }}
                 onFocus={() => setGlobalSearchOpen(true)}
-                placeholder="案件・日報・履歴を検索"
+                placeholder="案件・日報・定性情報・履歴を検索"
               />
             </label>
             <div className="login-select mobile-account" aria-label="ログイン中のアカウント">
@@ -2235,7 +2329,7 @@ export function AppShell() {
         </section>
 
         <main className="content">
-          {view !== "training" && (
+          {view !== "training" && view !== "insights" && (
             <Filters
               activeDate={activeDate}
               setActiveDate={setActiveDate}
@@ -2313,6 +2407,17 @@ export function AppShell() {
               focusReportId={focusedReportId}
               notifyMissingReportUser={notifyMissingReportUser}
               canNotifyMissingReports={Boolean(currentUser && ["admin", "manager", "leader"].includes(currentUser.role))}
+            />
+          )}
+
+          {view === "insights" && (
+            <InsightsView
+              key={focusedInsightId ?? "insights"}
+              data={data}
+              currentUser={currentUser}
+              saveInsight={saveInsight}
+              deleteInsight={deleteInsight}
+              focusInsightId={focusedInsightId}
             />
           )}
 
@@ -2422,6 +2527,10 @@ const helpText: Record<View, { title: string; items: string[] }> = {
     title: "日報の使い方",
     items: ["日報・週報・月報を書くを開いて提出します。", "提出すると、具体性、目標との差分、顧客反応、案件確度、次のアクション、組織への展開価値をもとにAIフィードバックが自動生成されます。", "提出一覧から過去の日報を確認・検索できます。", "コメントが入るとベル通知に表示されます。"],
   },
+  insights: {
+    title: "定性情報共有の使い方",
+    items: ["①顧客の声・要望、②競合動向、③サービス不備・改善提案、④新規市場ニーズの兆しのタブを切り替えて確認します。", "「定性情報を入力する」を開き、区分・日付・件名・内容を入れて共有します。", "共有した内容は全メンバーが閲覧できます。修正・削除は投稿者本人と管理者のみ可能です。"],
+  },
   targets: {
     title: "目標設定の使い方",
     items: ["階層・期間・対象日を選ぶと現在反映中の目標が表示されます。", "入力欄を変更して保存すると、その期間の全KPI目標が更新されます。", "チームや事業部の目標は、手入力がない場合はメンバー目標の合計を反映します。"],
@@ -2485,7 +2594,7 @@ function GlobalSearchPanel({
   close: () => void;
   openResult: (result: GlobalSearchResult) => void;
 }) {
-  const groupedResults = (["案件", "日報", "操作履歴"] as GlobalSearchResult["kind"][]).map((kind) => ({
+  const groupedResults = (["案件", "日報", "定性情報", "操作履歴"] as GlobalSearchResult["kind"][]).map((kind) => ({
     kind,
     items: results.filter((result) => result.kind === kind),
   }));
@@ -5717,6 +5826,224 @@ function ReportsView(props: {
 
 void ReportsView;
 
+function InsightsView(props: {
+  data: AppData;
+  currentUser: User;
+  saveInsight: (input: InsightInput, insightId?: string) => void;
+  deleteInsight: (insightId: string) => void;
+  focusInsightId: string | null;
+}) {
+  const focusedInsight = props.focusInsightId ? props.data.qualitativeInsights.find((item) => item.id === props.focusInsightId) : undefined;
+  const [category, setCategory] = useState<QualitativeInsightCategory>(focusedInsight?.category ?? "customer_voice");
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [composeResetKey, setComposeResetKey] = useState(0);
+  const [editingInsightId, setEditingInsightId] = useState<string | null>(null);
+  const [insightSearch, setInsightSearch] = useState("");
+  const [insightUserFilter, setInsightUserFilter] = useState("all");
+  const [insightMonthFilter, setInsightMonthFilter] = useState("");
+  const guide = insightCategoryGuides[category];
+  const searchText = insightSearch.trim().toLowerCase();
+  const categoryInsights = props.data.qualitativeInsights.filter((insight) => insight.category === category);
+  const insightList = categoryInsights
+    .filter((insight) => insightUserFilter === "all" || insight.userId === insightUserFilter)
+    .filter((insight) => !insightMonthFilter || monthKey(insight.date) === insightMonthFilter)
+    .filter((insight) => {
+      if (!searchText) return true;
+      const user = props.data.users.find((item) => item.id === insight.userId);
+      return [insight.title, insight.detail, insight.source ?? "", user?.name ?? "", insight.date].join(" ").toLowerCase().includes(searchText);
+    })
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+
+  function exportInsightsCsv() {
+    const rows = [
+      ["category", "date", "user", "title", "source", "detail"],
+      ...insightList.map((insight) => [
+        insightCategoryLabels[insight.category],
+        insight.date,
+        props.data.users.find((item) => item.id === insight.userId)?.name ?? "",
+        insight.title,
+        insight.source ?? "",
+        insight.detail,
+      ]),
+    ];
+    const blob = new Blob(["\uFEFF" + rows.map((row) => row.map(csvEscape).join(",")).join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "qualitative-insights.csv";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="reports-stack">
+      <div className="segmented wide-tabs insight-tabs" role="tablist" aria-label="定性情報の区分">
+        {insightCategories.map((item) => (
+          <button
+            key={item}
+            type="button"
+            role="tab"
+            aria-selected={category === item}
+            className={category === item ? "active" : ""}
+            onClick={() => {
+              setCategory(item);
+              setEditingInsightId(null);
+            }}
+          >
+            {insightCategoryLabels[item]}
+            <em>{props.data.qualitativeInsights.filter((insight) => insight.category === item).length}</em>
+          </button>
+        ))}
+      </div>
+
+      <section className={composerOpen ? "panel report-editor-panel open" : "panel report-editor-panel"}>
+        <button className="report-editor-toggle" type="button" onClick={() => setComposerOpen((value) => !value)}>
+          <span>
+            <Lightbulb size={18} />
+            <span>
+              <strong>定性情報を入力する</strong>
+              <small>{insightCategoryLabels[category]}</small>
+            </span>
+          </span>
+          <em>{composerOpen ? "閉じる" : "記入する"}</em>
+        </button>
+        {composerOpen && (
+          <div className="report-editor-body">
+            <p className="insight-guide">{guide.description}</p>
+            <InsightEditor
+              key={"compose-" + category + "-" + composeResetKey}
+              initial={{ category, date: todayDateKey(), title: "", detail: "", source: "" }}
+              submitLabel="共有する"
+              onSave={(input) => {
+                props.saveInsight(input);
+                setCategory(input.category);
+                setComposeResetKey((value) => value + 1);
+                setComposerOpen(false);
+              }}
+            />
+          </div>
+        )}
+      </section>
+
+      <section className="panel">
+        <div className="panel-title panel-title-with-action">
+          <MessageSquare size={18} />
+          <h3>{insightCategoryLabels[category]}</h3>
+          <button className="secondary-action" type="button" onClick={exportInsightsCsv} disabled={insightList.length === 0}>
+            <Download size={15} />CSV
+          </button>
+        </div>
+        <div className="report-list-controls insight-list-controls">
+          <label className="report-sort-control report-search-control">
+            <span>検索</span>
+            <input value={insightSearch} onChange={(event) => setInsightSearch(event.target.value)} placeholder="件名・内容・顧客名" />
+          </label>
+          <label className="report-sort-control">
+            <span>月</span>
+            <input type="month" value={insightMonthFilter} onChange={(event) => setInsightMonthFilter(event.target.value)} />
+          </label>
+          <label className="report-sort-control">
+            <span>投稿者</span>
+            <select value={insightUserFilter} onChange={(event) => setInsightUserFilter(event.target.value)}>
+              <option value="all">全員</option>
+              {props.data.users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
+            </select>
+          </label>
+        </div>
+        <div className="report-list">
+          {insightList.length === 0 && (
+            <EmptyState text={categoryInsights.length === 0 ? insightCategoryLabels[category] + "はまだ共有されていません。" : "条件に合う定性情報はありません。"} />
+          )}
+          {insightList.map((insight) => {
+            const user = props.data.users.find((item) => item.id === insight.userId);
+            const canEdit = props.currentUser.role === "admin" || insight.userId === props.currentUser.id;
+            const focused = insight.id === props.focusInsightId;
+            return (
+              <article key={insight.id} className={focused ? "report-card insight-card active" : "report-card insight-card"}>
+                {editingInsightId === insight.id ? (
+                  <InsightEditor
+                    initial={{ category: insight.category, date: insight.date, title: insight.title, detail: insight.detail, source: insight.source ?? "" }}
+                    submitLabel="修正を保存"
+                    onCancel={() => setEditingInsightId(null)}
+                    onSave={(input) => {
+                      props.saveInsight(input, insight.id);
+                      setCategory(input.category);
+                      setEditingInsightId(null);
+                    }}
+                  />
+                ) : (
+                  <>
+                    <div className="report-head">
+                      <div>
+                        <strong>{insight.title}</strong>
+                        <span>{insight.date} / {user?.name ?? "未設定"}{insight.source ? " / " + insight.source : ""}</span>
+                      </div>
+                      {canEdit && (
+                        <div className="insight-card-actions">
+                          <button className="secondary-action" type="button" onClick={() => setEditingInsightId(insight.id)}>修正</button>
+                          <button className="icon-button" type="button" title="削除" onClick={() => props.deleteInsight(insight.id)}>
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <p>{insight.detail}</p>
+                    {insight.updatedAt !== insight.createdAt && <small>{new Date(insight.updatedAt).toLocaleString("ja-JP")} 更新</small>}
+                  </>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function InsightEditor({ initial, submitLabel, onSave, onCancel }: {
+  initial: InsightInput;
+  submitLabel: string;
+  onSave: (input: InsightInput) => void;
+  onCancel?: () => void;
+}) {
+  const [input, setInput] = useState<InsightInput>(initial);
+  const guide = insightCategoryGuides[input.category];
+  const canSubmit = Boolean(input.title.trim() && input.detail.trim() && input.date);
+  return (
+    <form
+      className="insight-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (canSubmit) onSave(input);
+      }}
+    >
+      <div className="insight-form-grid">
+        <label className="field">区分
+          <select value={input.category} onChange={(event) => setInput({ ...input, category: event.target.value as QualitativeInsightCategory })}>
+            {insightCategories.map((item) => <option key={item} value={item}>{insightCategoryLabels[item]}</option>)}
+          </select>
+        </label>
+        <label className="field">日付
+          <input type="date" value={input.date} onChange={(event) => setInput({ ...input, date: event.target.value })} required />
+        </label>
+        <label className="field">{guide.sourceLabel}（任意）
+          <input value={input.source} onChange={(event) => setInput({ ...input, source: event.target.value })} />
+        </label>
+      </div>
+      <label className="field">件名
+        <input value={input.title} onChange={(event) => setInput({ ...input, title: event.target.value })} placeholder="ひとことで分かる要約" required />
+      </label>
+      <label className="field">内容
+        <textarea value={input.detail} onChange={(event) => setInput({ ...input, detail: event.target.value })} placeholder={guide.detailPlaceholder} required />
+      </label>
+      <div className="insight-form-actions">
+        <button className="primary" type="submit" disabled={!canSubmit}><Save size={18} />{submitLabel}</button>
+        {onCancel && <button className="secondary-action" type="button" onClick={onCancel}>キャンセル</button>}
+      </div>
+    </form>
+  );
+}
+
 function feedbackMarkdown(items: string[]) {
   return items.map((item) => "- " + item).join("\n");
 }
@@ -5999,6 +6326,7 @@ function MembersView(props: {
       ...(parsed.trainingSchedules ?? []).map((item) => item.updatedAt),
       ...(parsed.reports ?? []).map((item) => item.updatedAt),
       ...(parsed.announcements ?? []).map((item) => item.updatedAt),
+      ...(parsed.qualitativeInsights ?? []).map((item) => item.updatedAt),
       ...(parsed.auditLogs ?? []).map((item) => item.createdAt),
     ].filter(Boolean);
     setBackupPreview({
@@ -6164,6 +6492,7 @@ function MembersView(props: {
                 <option value="report">日報</option>
                 <option value="kpi">KPI</option>
                 <option value="announcement">お知らせ</option>
+                <option value="insight">定性情報</option>
               </select>
             </label>
           </div>

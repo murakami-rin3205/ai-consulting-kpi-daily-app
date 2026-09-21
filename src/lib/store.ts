@@ -38,6 +38,7 @@ export type AppDataCollection = keyof Pick<
   | "reportComments"
   | "notifications"
   | "announcements"
+  | "qualitativeInsights"
   | "auditLogs"
 >;
 
@@ -68,6 +69,7 @@ export const appDataCollections: AppDataCollection[] = [
   "reportComments",
   "notifications",
   "announcements",
+  "qualitativeInsights",
   "auditLogs",
 ];
 
@@ -352,6 +354,7 @@ export function normalizeAppData(data: AppData): AppData {
       attachments: announcement.attachments ?? [],
       readByUserIds: announcement.readByUserIds ?? [],
     })),
+    qualitativeInsights: fixed.qualitativeInsights ?? [],
     auditLogs: fixed.auditLogs ?? [],
   };
 }

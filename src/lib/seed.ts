@@ -206,5 +206,6 @@ export const seedData: AppData = {
       updatedAt: now,
     },
   ],
+  qualitativeInsights: [],
   auditLogs: [],
 };

@@ -134,6 +134,7 @@ function mergeConcurrentUpdates(current: AppData, next: AppData, baseRevision: s
     reportComments: preserveNewerItems(current.reportComments, next.reportComments, baseRevision, (item) => item.createdAt),
     notifications: preserveNewerItems(current.notifications, next.notifications, baseRevision, (item) => item.resolvedAt ?? item.createdAt),
     announcements: preserveNewerItems(current.announcements, next.announcements, baseRevision, (item) => item.updatedAt),
+    qualitativeInsights: preserveNewerItems(current.qualitativeInsights, next.qualitativeInsights, baseRevision, (item) => item.updatedAt),
     auditLogs: preserveNewerItems(current.auditLogs, next.auditLogs, baseRevision, (item) => item.createdAt),
   };
 }
