@@ -6281,31 +6281,215 @@ button.report-rate-card {
   grid-template-columns: minmax(220px, 1.4fr) minmax(160px, 0.8fr) minmax(160px, 0.8fr);
 }
 
-.report-list .insight-card + .insight-card {
-  margin-top: 10px;
+.insight-tabs button,
+.insight-card {
+  --insight-accent: #2563eb;
 }
 
-.insight-card p {
+.insight-tabs .insight-tab-competitor,
+.insight-card.insight-competitor {
+  --insight-accent: #d97706;
+}
+
+.insight-tabs .insight-tab-service_issue,
+.insight-card.insight-service_issue {
+  --insight-accent: #dc2626;
+}
+
+.insight-tabs .insight-tab-market_need,
+.insight-card.insight-market_need {
+  --insight-accent: #0f766e;
+}
+
+.insight-tabs button {
+  border-bottom: 3px solid transparent;
+}
+
+.insight-tabs button.active,
+.insight-tabs button.active:hover {
+  border-bottom-color: var(--insight-accent);
+  color: var(--insight-accent);
+}
+
+.insight-tabs button.active em {
+  background: var(--insight-accent);
+  color: #ffffff;
+}
+
+.insight-count {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.insight-head-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.insight-group-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.insight-group-filter button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.insight-group-filter button.active {
+  border-color: var(--primary);
+  background: var(--panel-soft);
+  color: var(--primary-strong);
+}
+
+.insight-group-filter button i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.insight-group-filter button em {
+  color: inherit;
+  font-size: 12px;
+  font-style: normal;
+  opacity: 0.75;
+}
+
+.report-list.insight-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.insight-list > .empty-state {
+  grid-column: 1 / -1;
+}
+
+.insight-card {
+  border-left: 4px solid var(--insight-accent);
+  padding: 12px 14px;
+  background: #ffffff;
+}
+
+.insight-card.editing {
+  grid-column: 1 / -1;
+}
+
+.insight-card.active {
+  box-shadow: 0 0 0 2px var(--insight-accent);
+}
+
+.insight-card-toggle {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+}
+
+.insight-card-toggle strong {
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.insight-card-toggle svg {
+  flex: 0 0 auto;
+  margin-top: 3px;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+
+.insight-card.expanded .insight-card-toggle svg {
+  transform: rotate(180deg);
+}
+
+.insight-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.insight-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 9px;
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.insight-card p.insight-detail {
+  margin: 10px 0 0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: 2;
+}
+
+.insight-card.expanded p.insight-detail {
   display: block;
   overflow: visible;
-  margin: 0;
   color: var(--foreground);
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
-.insight-card > small {
-  display: block;
-  margin-top: 8px;
+.insight-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  border-top: 1px dashed var(--line);
+  padding-top: 10px;
+}
+
+.insight-card-footer small {
   color: var(--muted);
   font-weight: 700;
 }
 
 .insight-card-actions {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 6px;
-  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.insight-card-actions .secondary-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.insight-card-actions .insight-delete {
+  color: #b91c1c;
 }
 
 .sync-toast {

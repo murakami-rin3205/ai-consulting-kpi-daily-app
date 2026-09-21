@@ -214,6 +214,15 @@ const insightCategoryGuides: Record<QualitativeInsightCategory, { description: s
     detailPlaceholder: "どの業界・どんな課題で、なぜニーズがありそうと感じたか",
   },
 };
+function insightSourceParts(source?: string) {
+  return (source ?? "").split(" / ").map((part) => part.trim()).filter(Boolean);
+}
+
+function insightChipColor(text: string) {
+  const index = Array.from(text).reduce((sum, char) => sum + char.charCodeAt(0), 0) % palette.length;
+  return palette[index];
+}
+
 type InsightInput = { category: QualitativeInsightCategory; date: string; title: string; detail: string; source: string };
 const forecastRankOptions: DealRank[] = ["c", "b", "a", "contract_planned"];
 const dealRankSortScore: Record<DealRank, number> = {
@@ -5841,10 +5850,21 @@ function InsightsView(props: {
   const [insightSearch, setInsightSearch] = useState("");
   const [insightUserFilter, setInsightUserFilter] = useState("all");
   const [insightMonthFilter, setInsightMonthFilter] = useState("");
+  const [insightGroupFilter, setInsightGroupFilter] = useState("all");
+  const [expandedInsightIds, setExpandedInsightIds] = useState<string[]>(props.focusInsightId ? [props.focusInsightId] : []);
+  const [expandAllInsights, setExpandAllInsights] = useState(false);
   const guide = insightCategoryGuides[category];
   const searchText = insightSearch.trim().toLowerCase();
   const categoryInsights = props.data.qualitativeInsights.filter((insight) => insight.category === category);
+  const insightGroups = Array.from(
+    categoryInsights.reduce((groups, insight) => {
+      const group = insightSourceParts(insight.source)[0] ?? "未設定";
+      return groups.set(group, (groups.get(group) ?? 0) + 1);
+    }, new Map<string, number>()),
+  );
+  const activeGroupFilter = insightGroups.some(([group]) => group === insightGroupFilter) ? insightGroupFilter : "all";
   const insightList = categoryInsights
+    .filter((insight) => activeGroupFilter === "all" || (insightSourceParts(insight.source)[0] ?? "未設定") === activeGroupFilter)
     .filter((insight) => insightUserFilter === "all" || insight.userId === insightUserFilter)
     .filter((insight) => !insightMonthFilter || monthKey(insight.date) === insightMonthFilter)
     .filter((insight) => {
@@ -5884,10 +5904,11 @@ function InsightsView(props: {
             type="button"
             role="tab"
             aria-selected={category === item}
-            className={category === item ? "active" : ""}
+            className={"insight-tab-" + item + (category === item ? " active" : "")}
             onClick={() => {
               setCategory(item);
               setEditingInsightId(null);
+              setInsightGroupFilter("all");
             }}
           >
             {insightCategoryLabels[item]}
@@ -5928,11 +5949,28 @@ function InsightsView(props: {
       <section className="panel">
         <div className="panel-title panel-title-with-action">
           <MessageSquare size={18} />
-          <h3>{insightCategoryLabels[category]}</h3>
-          <button className="secondary-action" type="button" onClick={exportInsightsCsv} disabled={insightList.length === 0}>
-            <Download size={15} />CSV
-          </button>
+          <h3>{insightCategoryLabels[category]}<small className="insight-count">{insightList.length}件</small></h3>
+          <div className="insight-head-actions">
+            <button className="secondary-action" type="button" onClick={() => { setExpandAllInsights((value) => !value); setExpandedInsightIds([]); }}>
+              {expandAllInsights ? "すべて閉じる" : "すべて開く"}
+            </button>
+            <button className="secondary-action" type="button" onClick={exportInsightsCsv} disabled={insightList.length === 0}>
+              <Download size={15} />CSV
+            </button>
+          </div>
         </div>
+        {insightGroups.length > 1 && (
+          <div className="insight-group-filter" aria-label="拠点・情報源で絞り込み">
+            <button type="button" className={activeGroupFilter === "all" ? "active" : ""} onClick={() => setInsightGroupFilter("all")}>
+              すべて<em>{categoryInsights.length}</em>
+            </button>
+            {insightGroups.map(([group, count]) => (
+              <button key={group} type="button" className={activeGroupFilter === group ? "active" : ""} onClick={() => setInsightGroupFilter(group)}>
+                <i style={{ background: insightChipColor(group) }} />{group}<em>{count}</em>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="report-list-controls insight-list-controls">
           <label className="report-sort-control report-search-control">
             <span>検索</span>
@@ -5950,7 +5988,7 @@ function InsightsView(props: {
             </select>
           </label>
         </div>
-        <div className="report-list">
+        <div className="report-list insight-list">
           {insightList.length === 0 && (
             <EmptyState text={categoryInsights.length === 0 ? insightCategoryLabels[category] + "はまだ共有されていません。" : "条件に合う定性情報はありません。"} />
           )}
@@ -5958,8 +5996,19 @@ function InsightsView(props: {
             const user = props.data.users.find((item) => item.id === insight.userId);
             const canEdit = props.currentUser.role === "admin" || insight.userId === props.currentUser.id;
             const focused = insight.id === props.focusInsightId;
+            const editing = editingInsightId === insight.id;
+            const expanded = editing || (expandAllInsights ? !expandedInsightIds.includes(insight.id) : expandedInsightIds.includes(insight.id));
+            const detailText = insight.detail.startsWith(insight.title) ? insight.detail.slice(insight.title.length).replace(/^[:：\s]+/, "") : insight.detail;
+            const sourceParts = insightSourceParts(insight.source).filter((part) => {
+              const owners = part.match(/^担当[:：]\s*(.+)$/)?.[1];
+              return !owners || !owners.split("、").every((owner) => (user?.name ?? "").includes(owner.trim()));
+            });
+            const { month, day } = dateParts(insight.date);
             return (
-              <article key={insight.id} className={focused ? "report-card insight-card active" : "report-card insight-card"}>
+              <article
+                key={insight.id}
+                className={"report-card insight-card insight-" + insight.category + (expanded ? " expanded" : "") + (focused ? " active" : "") + (editing ? " editing" : "")}
+              >
                 {editingInsightId === insight.id ? (
                   <InsightEditor
                     initial={{ category: insight.category, date: insight.date, title: insight.title, detail: insight.detail, source: insight.source ?? "" }}
@@ -5973,22 +6022,36 @@ function InsightsView(props: {
                   />
                 ) : (
                   <>
-                    <div className="report-head">
-                      <div>
-                        <strong>{insight.title}</strong>
-                        <span>{insight.date} / {user?.name ?? "未設定"}{insight.source ? " / " + insight.source : ""}</span>
-                      </div>
-                      {canEdit && (
-                        <div className="insight-card-actions">
-                          <button className="secondary-action" type="button" onClick={() => setEditingInsightId(insight.id)}>修正</button>
-                          <button className="icon-button" type="button" title="削除" onClick={() => props.deleteInsight(insight.id)}>
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      )}
+                    <button
+                      className="insight-card-toggle"
+                      type="button"
+                      aria-expanded={expanded}
+                      onClick={() => setExpandedInsightIds((ids) => (ids.includes(insight.id) ? ids.filter((item) => item !== insight.id) : [...ids, insight.id]))}
+                    >
+                      <strong>{insight.title}</strong>
+                      <ChevronDown size={16} />
+                    </button>
+                    <div className="insight-chips">
+                      <span className="insight-chip insight-chip-date"><CalendarDays size={12} />{month}/{day}</span>
+                      <span className="insight-chip"><Users size={12} />{user?.name ?? "未設定"}</span>
+                      {sourceParts.map((part, index) => (
+                        <span key={part} className="insight-chip" style={index === 0 ? { color: insightChipColor(part), borderColor: hexToRgba(insightChipColor(part), 0.35), background: hexToRgba(insightChipColor(part), 0.08) } : undefined}>
+                          {part}
+                        </span>
+                      ))}
                     </div>
-                    <p>{insight.detail}</p>
-                    {insight.updatedAt !== insight.createdAt && <small>{new Date(insight.updatedAt).toLocaleString("ja-JP")} 更新</small>}
+                    {detailText && <p className="insight-detail">{detailText}</p>}
+                    {expanded && (canEdit || insight.updatedAt !== insight.createdAt) && (
+                      <div className="insight-card-footer">
+                        <small>{insight.updatedAt !== insight.createdAt ? new Date(insight.updatedAt).toLocaleString("ja-JP") + " 更新" : ""}</small>
+                        {canEdit && (
+                          <div className="insight-card-actions">
+                            <button className="secondary-action" type="button" onClick={() => setEditingInsightId(insight.id)}><Edit3 size={14} />修正</button>
+                            <button className="secondary-action insight-delete" type="button" onClick={() => props.deleteInsight(insight.id)}><Trash2 size={14} />削除</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
               </article>
