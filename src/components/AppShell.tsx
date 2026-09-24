@@ -54,7 +54,7 @@ import {
 } from "recharts";
 import type { PieLabelRenderProps } from "recharts";
 import { MessageResponse } from "@/components/ai-elements/message";
-import { addDays, eachDate, formatDateJa, getPeriodRange, getReportRange, parseDateKey, toDateKey } from "@/lib/periods";
+import { addDays, eachDate, formatDateJa, getPeriodRange, getReportRange, isBusinessDay, parseDateKey, toDateKey } from "@/lib/periods";
 import { buildCriteriaReportFeedback, normalizeReportFeedback } from "@/lib/report-feedback";
 import { seedData } from "@/lib/seed";
 import type {
@@ -4022,11 +4022,12 @@ function KpiInputViewCompact(props: {
   const attendance = props.data.attendanceRecords.find((record) => record.userId === selectedUser?.id && record.date === props.activeDate);
   const selectedTeam = props.data.teams.find((team) => team.id === selectedUser?.teamId);
   const selectedTeamUserIds = selectedTeam ? props.data.users.filter((user) => user.teamId === selectedTeam.id).map((user) => user.id) : [];
+  // 土日祝は集計対象外として行を出さない。ただし出勤やKPI実績が入っている日は確認・修正できるよう残す。
+  const hasActivityOn = (date: string) =>
+    props.data.attendanceRecords.some((record) => record.date === date && record.attended) ||
+    props.data.kpiRecords.some((record) => record.date === date && record.actualValue > 0);
   const recentDates = eachDate(toDateKey(addDays(parseDateKey(props.activeDate), -29)), props.activeDate)
-    .filter((date) => {
-      const day = parseDateKey(date).getDay();
-      return day !== 0 && day !== 6;
-    })
+    .filter((date) => isBusinessDay(date) || hasActivityOn(date))
     .reverse();
   const buildRecentInputRows = (userIds: string[], drill: Drill) =>
     recentDates.map((date) => {
@@ -6739,10 +6740,6 @@ function AnalysisView(props: {
   const todayKey = todayDateKey();
   const paceAnchor = todayKey >= monthlyRange.start && todayKey <= monthlyRange.end ? todayKey : analysisDate < monthlyRange.start ? monthlyRange.start : analysisDate > monthlyRange.end ? monthlyRange.end : analysisDate;
   const monthlyDateKeys = eachDate(monthlyRange.start, monthlyRange.end);
-  const isBusinessDay = (dateKey: string) => {
-    const day = parseDateKey(dateKey).getDay();
-    return day !== 0 && day !== 6;
-  };
   const reportBaseRange = getPeriodRange(analysisPeriodType, analysisDate);
   const reportAnalysisRange = {
     start: reportBaseRange.start,
